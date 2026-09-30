@@ -139,11 +139,11 @@ LRESULT CALLBACK proc(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
         if(x!=r.left) SetWindowPos(hwnd,NULL,x,r.top,0,0,SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
         render(); if(tickInterval!=(behavior.sleeping?2000U:125U)) timer(); return 0;
     }
-    case WM_LBUTTONDOWN: { behavior.interact(); timer(); render(); GetCursorPos(&anchor); RECT r; GetWindowRect(hwnd,&r); start={r.left,r.top}; dragging=false; SetCapture(hwnd); return 0; }
-    case WM_MOUSEMOVE: if(GetCapture()==hwnd) { POINT p; GetCursorPos(&p); if(abs(p.x-anchor.x)+abs(p.y-anchor.y)>3) dragging=true; if(dragging) SetWindowPos(hwnd,NULL,start.x+p.x-anchor.x,start.y+p.y-anchor.y,0,0,SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE); } return 0;
+    case WM_LBUTTONDOWN: { GetCursorPos(&anchor); RECT r; GetWindowRect(hwnd,&r); start={r.left,r.top}; dragging=false; SetCapture(hwnd); return 0; }
+    case WM_MOUSEMOVE: if(GetCapture()==hwnd) { POINT p; GetCursorPos(&p); if(!dragging && abs(p.x-anchor.x)+abs(p.y-anchor.y)>3) { dragging=true; behavior.interact(); timer(); render(); } if(dragging) SetWindowPos(hwnd,NULL,start.x+p.x-anchor.x,start.y+p.y-anchor.y,0,0,SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE); } return 0;
     case WM_LBUTTONUP: {
         if(GetCapture()!=hwnd) return 0; ReleaseCapture();
-        if(!dragging) tapped=now();
+        if(!dragging) playSpecial(behavior.randomSpecial(GetTickCount()));
         RECT r; GetWindowRect(hwnd,&r); MONITORINFO mi{sizeof(mi)}; GetMonitorInfo(MonitorFromWindow(hwnd,MONITOR_DEFAULTTONEAREST),&mi);
         SetWindowPos(hwnd,NULL,(int)clampOrigin(r.left,mi.rcWork.left,mi.rcWork.right,width),(int)clampOrigin(r.top,mi.rcWork.top,mi.rcWork.bottom,height),0,0,SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
         render(); return 0;

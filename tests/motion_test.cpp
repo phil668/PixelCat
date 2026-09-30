@@ -53,4 +53,17 @@ int main() {
         assert(b.special==-1 && b.activity()==Activity::Idle);
     }
     b.playSpecial(SpecialCount); assert(b.special==-1);
+    b.playSpecial(0);
+    bool seen[SpecialCount] = {};
+    for (unsigned roll = 0; roll < SpecialCount - 1; ++roll) {
+        int next = b.randomSpecial(roll);
+        assert(next != 0 && next >= 0 && next < SpecialCount);
+        seen[next] = true;
+    }
+    for (int index = 1; index < SpecialCount; ++index) assert(seen[index]);
+    b.interact();
+    for (unsigned roll = 0; roll < SpecialCount; ++roll) {
+        int next = b.randomSpecial(roll);
+        assert(next == (int)roll);
+    }
 }

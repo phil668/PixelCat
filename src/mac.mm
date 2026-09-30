@@ -10,6 +10,7 @@
 @property double lastTick;
 @property BOOL held;
 - (void)interact;
+- (BOOL)playSpecialIndex:(int)index;
 @property BOOL paused;
 @property double tapped;
 @property NSPoint anchor;
@@ -34,6 +35,20 @@
     self.needsDisplay = YES;
 }
 - (void)interact { behavior.interact(); [self startTimer]; }
+- (BOOL)playSpecialIndex:(int)index {
+    NSArray *names = @[@"groom",@"flower",@"belly",@"downcast",@"stretch",@"doze"];
+    if (index<0 || index>=SpecialCount) return NO;
+    NSURL *url = [NSBundle.mainBundle URLForResource:names[index] withExtension:@"png"];
+    CGImageSourceRef source = url ? CGImageSourceCreateWithURL((__bridge CFURLRef)url,NULL) : NULL;
+    if (!source) return NO;
+    NSDictionary *opts = @{(id)kCGImageSourceCreateThumbnailFromImageAlways:@YES,(id)kCGImageSourceThumbnailMaxPixelSize:@512,(id)kCGImageSourceShouldCacheImmediately:@YES};
+    CGImageRef img = CGImageSourceCreateThumbnailAtIndex(source,0,(__bridge CFDictionaryRef)opts); CFRelease(source);
+    if (!img) return NO;
+    self.specialImage = CFBridgingRelease(img);
+    behavior.playSpecial(index);
+    [self startTimer];
+    return YES;
+}
 - (void)tick:(NSTimer *)timer {
     double now = NSProcessInfo.processInfo.systemUptime, dt = now-self.lastTick; self.lastTick = now;
     NSRect frame = self.window.frame, work = (self.window.screen ?: NSScreen.mainScreen).visibleFrame;
@@ -64,17 +79,17 @@
     CGContextDrawImage(c, CGRectMake((self.bounds.size.width-w)/2+sway, 3+((action||special)?0:p.rise), w, h*stretch), img);
 }
 - (void)mouseDown:(NSEvent *)event {
-    [self interact]; self.held = YES;
+    self.held = YES;
     self.anchor = NSEvent.mouseLocation; self.startOrigin = self.window.frame.origin; self.dragged = NO;
 }
 - (void)mouseDragged:(NSEvent *)event {
     NSPoint now = NSEvent.mouseLocation;
-    if (hypot(now.x-self.anchor.x, now.y-self.anchor.y) > 3) self.dragged = YES;
+    if (!self.dragged && hypot(now.x-self.anchor.x, now.y-self.anchor.y) > 3) { self.dragged = YES; [self interact]; }
     if (self.dragged) [self.window setFrameOrigin:NSMakePoint(self.startOrigin.x+now.x-self.anchor.x, self.startOrigin.y+now.y-self.anchor.y)];
 }
 - (void)mouseUp:(NSEvent *)event {
     self.held = NO;
-    if (!self.dragged) { self.tapped = NSProcessInfo.processInfo.systemUptime; self.needsDisplay = YES; }
+    if (!self.dragged) [self playSpecialIndex:behavior.randomSpecial(arc4random_uniform(SpecialCount))];
     NSRect r = self.window.frame, bounds = (self.window.screen ?: NSScreen.mainScreen).visibleFrame;
     [self.window setFrameOrigin:NSMakePoint(clampOrigin(r.origin.x,bounds.origin.x,NSMaxX(bounds),r.size.width),clampOrigin(r.origin.y,bounds.origin.y,NSMaxY(bounds),r.size.height))];
     [NSUserDefaults.standardUserDefaults setObject:NSStringFromPoint(self.window.frame.origin) forKey:@"origin"];
@@ -174,17 +189,7 @@
     [[NSJSONSerialization dataWithJSONObject:report options:NSJSONWritingPrettyPrinted error:nil] writeToURL:out atomically:YES];
 }
 - (void)playSpecial:(NSMenuItem *)sender {
-    NSArray *names = @[@"groom",@"flower",@"belly",@"downcast",@"stretch",@"doze"];
-    if (sender.tag<0 || sender.tag>=SpecialCount) return;
-    NSURL *url = [NSBundle.mainBundle URLForResource:names[sender.tag] withExtension:@"png"];
-    CGImageSourceRef source = url ? CGImageSourceCreateWithURL((__bridge CFURLRef)url,NULL) : NULL;
-    if (!source) { NSBeep(); return; }
-    NSDictionary *opts = @{(id)kCGImageSourceCreateThumbnailFromImageAlways:@YES,(id)kCGImageSourceThumbnailMaxPixelSize:@512,(id)kCGImageSourceShouldCacheImmediately:@YES};
-    CGImageRef img = CGImageSourceCreateThumbnailAtIndex(source,0,(__bridge CFDictionaryRef)opts); CFRelease(source);
-    if (!img) { NSBeep(); return; }
-    self.cat.specialImage = CFBridgingRelease(img);
-    self.cat->behavior.playSpecial((int)sender.tag);
-    [self.cat startTimer];
+    if (![self.cat playSpecialIndex:(int)sender.tag]) NSBeep();
 }
 - (BOOL)validateMenuItem:(NSMenuItem *)item {
     if (item.action == @selector(toggleRoaming:)) item.state = self.cat->behavior.roaming ? NSControlStateValueOn : NSControlStateValueOff;

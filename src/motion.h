@@ -29,6 +29,10 @@ struct Behavior {
     void interact() { sleeping = false; sinceInteraction = 0; phase = 0; special = -1; specialRemaining = 0; }
     void nap() { interact(); sleeping = true; }
     void playSpecial(int index) { if(index < 0 || index >= SpecialCount) return; interact(); special = index; specialRemaining = 8; }
+    int randomSpecial(unsigned roll) const {
+        if (special < 0 || special >= SpecialCount || SpecialCount == 1) return (int)(roll % SpecialCount);
+        return (int)((special + 1u + roll % (SpecialCount - 1)) % SpecialCount);
+    }
     int frame() const { return sleeping ? 2 + (int(clock / 3) % 2) : (int(clock * 6) % 2); }
     double advance(double dt, double x, double low, double high, double width, bool paused) {
         if (paused) return x;
